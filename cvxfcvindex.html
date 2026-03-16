@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>OTP — One Time Pad</title>
+<script src="https://cdn.jsdelivr.net/npm/matrix-widget-api@1.6.0/dist/matrix-widget-api.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@700;900&display=swap" rel="stylesheet"/>
+<style>
+:root{--bg:#020508;--bg2:#050d10;--bg3:#0a1520;--green:#00ff41;--green3:rgba(0,255,65,.07);--border:rgba(0,255,65,.15);--border2:rgba(0,255,65,.35);--text:#c8ffd4;--text2:#5a9966;--text3:#2a4a33;--red:#ff0040;--amber:#ffaa00}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monospace;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.06) 2px,rgba(0,0,0,.06) 4px);pointer-events:none;z-index:9999}
+body::after{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,255,65,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,65,.02) 1px,transparent 1px);background-size:24px 24px;pointer-events:none;z-index:0}
+#app{position:relative;z-index:1;display:flex;flex-direction:column;min-height:100vh}
+header{padding:0 1rem;height:52px;border-bottom:1px solid var(--border);background:rgba(2,5,8,.98);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.logo{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;color:var(--green);letter-spacing:.2em;text-shadow:0 0 20px rgba(0,255,65,.4)}
+.logo span{color:var(--text2);font-size:8px;display:block;letter-spacing:.12em;margin-top:1px}
+.conn-status{display:flex;align-items:center;gap:6px;font-size:9px;color:var(--text2)}
+.conn-dot{width:6px;height:6px;border-radius:50%;background:var(--amber)}
+.conn-dot.live{background:var(--green);box-shadow:0 0 6px var(--green)}
+.tabs{display:flex;border-bottom:1px solid var(--border);background:var(--bg2)}
+.tab{flex:1;padding:10px;font-family:'Share Tech Mono',monospace;font-size:10px;border:none;background:transparent;color:var(--text3);cursor:pointer;letter-spacing:.08em;text-transform:uppercase;border-bottom:2px solid transparent;transition:all .15s}
+.tab.active{color:var(--green);border-bottom-color:var(--green);background:var(--green3)}
+main{flex:1;padding:1rem;display:flex;flex-direction:column;gap:12px}
+.sec-label{font-size:8px;letter-spacing:.2em;color:var(--text3);text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.sec-label::before{content:'//';color:var(--green)}
+.sec-label::after{content:'';flex:1;height:1px;background:var(--border)}
+textarea,input[type=text]{width:100%;font-family:'Share Tech Mono',monospace;font-size:12px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:10px 12px;color:var(--green);outline:none;line-height:1.7;transition:border-color .15s;caret-color:var(--green)}
+textarea{resize:none}
+textarea:focus,input:focus{border-color:var(--border2)}
+textarea::placeholder,input::placeholder{color:var(--text3)}
+.btn{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;padding:9px 14px;border-radius:3px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text2);transition:all .15s;letter-spacing:.1em;text-transform:uppercase;white-space:nowrap}
+.btn:hover{border-color:var(--green);color:var(--green);background:var(--green3)}
+.btn.primary{background:var(--green3);border-color:var(--green);color:var(--green)}
+.btn.danger{border-color:var(--red);color:var(--red);background:rgba(255,0,64,.05)}
+.btn.amber{border-color:var(--amber);color:var(--amber);background:rgba(255,170,0,.05)}
+.btn.full{width:100%;text-align:center;padding:11px}
+.btn-row{display:flex;gap:6px}
+.info-box{background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:10px 12px;font-size:11px;line-height:1.7}
+.info-box.success{border-color:rgba(0,255,65,.3);background:rgba(0,255,65,.04);color:var(--green)}
+.info-box.warning{border-color:rgba(255,170,0,.3);background:rgba(255,170,0,.04);color:var(--amber)}
+.info-box.error{border-color:rgba(255,0,64,.3);background:rgba(255,0,64,.04);color:var(--red)}
+.info-box.neutral{color:var(--text2)}
+.key-display{background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:10px 12px;font-size:10px;color:var(--green);word-break:break-all;line-height:1.6;max-height:70px;overflow-y:auto}
+.stat-row{display:flex;gap:6px;flex-wrap:wrap}
+.stat{background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:4px 10px;font-size:9px}
+.stat span{color:var(--text3)}.stat strong{color:var(--green)}
+.key-badge{display:inline-flex;align-items:center;gap:5px;font-size:9px;padding:3px 10px;border-radius:3px;letter-spacing:.1em;font-family:'Orbitron',sans-serif}
+.key-badge.ok{background:rgba(0,255,65,.08);border:1px solid rgba(0,255,65,.3);color:var(--green)}
+.key-badge.no{background:rgba(255,0,64,.08);border:1px solid rgba(255,0,64,.3);color:var(--red)}
+.key-badge .dot{width:5px;height:5px;border-radius:50%;background:currentColor}
+.decode-box{background:var(--bg2);border:1px solid var(--border2);border-radius:4px;padding:12px;min-height:60px;font-size:13px;color:var(--green);line-height:1.6;word-break:break-all;position:relative;overflow:hidden}
+.decode-box::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--green),transparent);animation:scanh 3s linear infinite}
+@keyframes scanh{0%,100%{opacity:.3}50%{opacity:1}}
+.progress-bar{height:2px;background:var(--bg3);border-radius:1px;overflow:hidden;margin:6px 0}
+.progress-fill{height:100%;background:var(--green);border-radius:1px;box-shadow:0 0 6px var(--green);transition:width .05s linear;width:0%}
+.progress-label{font-size:9px;color:var(--text2);letter-spacing:.1em}
+.history-item{border-bottom:1px solid var(--border);padding:8px 0}
+.history-item:last-child{border-bottom:none}
+.page{display:none}
+.page.active{display:flex;flex-direction:column;gap:12px}
+@keyframes decode-char{0%{color:var(--text3)}60%{color:var(--amber)}100%{color:var(--green)}}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:var(--bg2)}::-webkit-scrollbar-thumb{background:rgba(0,255,65,.2);border-radius:2px}
+</style>
+</head>
+<body>
+<div id="app">
+<header>
+  <div class="logo">OTP CIPHER<span>ONE-TIME PAD — UNBREAKABLE</span></div>
+  <div class="conn-status"><div class="conn-dot" id="conn-dot"></div><span id="conn-label">OFFLINE</span></div>
+</header>
+<div class="tabs">
+  <button class="tab active" onclick="showPage('setup',this)">🔑 CLÉ</button>
+  <button class="tab" onclick="showPage('encrypt',this)">🔒 CHIFFRER</button>
+  <button class="tab" onclick="showPage('decrypt',this)">🔓 DÉCHIFFRER</button>
+  <button class="tab" onclick="showPage('history',this)">📋 JOURNAL</button>
+</div>
+
+<!-- PAGE CLÉ -->
+<div class="page active" id="page-setup">
+<main>
+  <div class="info-box neutral">
+    <strong style="color:var(--green)">Comment ça marche :</strong><br>
+    1. Génère une clé → copie-la<br>
+    2. Envoie-la à ton contact via <strong style="color:var(--amber)">Signal ou en personne</strong><br>
+    3. Il la colle dans son widget → Charger<br>
+    4. Vous utilisez le même widget pour écrire et lire
+  </div>
+  <div>
+    <div class="sec-label">Statut</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div id="key-badge-wrap"><span class="key-badge no"><span class="dot"></span>AUCUNE CLÉ</span></div>
+      <div class="stat-row">
+        <div class="stat"><span>Taille : </span><strong id="key-len">0</strong></div>
+        <div class="stat"><span>Offset : </span><strong id="key-used">0</strong></div>
+        <div class="stat"><span>Restant : </span><strong id="key-remaining">0</strong></div>
+      </div>
+    </div>
+    <div class="key-display" id="key-display" style="color:var(--text3)">Aucune clé chargée...</div>
+  </div>
+  <div>
+    <div class="sec-label">Générer</div>
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">
+      <span style="font-size:11px;color:var(--text2)">Taille :</span>
+      <input type="range" id="key-size" min="256" max="8192" step="256" value="2048" oninput="document.getElementById('ksv').textContent=this.value+' octets (~'+this.value+' car.)'" style="flex:1;accent-color:var(--green)"/>
+      <span style="font-size:10px;color:var(--green);min-width:120px" id="ksv">2048 octets (~2048 car.)</span>
+    </div>
+    <button class="btn primary full" onclick="generateKey()">⚡ GÉNÉRER UNE CLÉ</button>
+  </div>
+  <div id="new-key-section" style="display:none;flex-direction:column;gap:8px">
+    <div class="sec-label">Clé générée — à partager</div>
+    <div class="key-display" id="new-key-display"></div>
+    <div id="key-checksum" style="font-size:9px;color:var(--text2);padding:4px 0"></div>
+    <div class="btn-row">
+      <button class="btn primary" id="copy-new-key-btn" onclick="copyNewKey()" style="flex:1">📋 COPIER LA CLÉ</button>
+      <button class="btn" onclick="useThisKey()" style="flex:1">✅ UTILISER</button>
+    </div>
+    <div class="info-box warning" style="font-size:10px">⚠ Partage cette clé <strong>hors Element</strong> (Signal, en personne). Ton contact doit avoir <strong>exactement</strong> la même clé.</div>
+  </div>
+  <div>
+    <div class="sec-label">Charger une clé</div>
+    <textarea id="import-key-input" rows="3" placeholder="Colle ici la clé reçue (hexadécimal)..."></textarea>
+    <div id="import-checksum" style="font-size:9px;color:var(--text2);padding:4px 0;display:none"></div>
+    <button class="btn amber full" style="margin-top:8px" onclick="importKey()">📥 CHARGER CETTE CLÉ</button>
+  </div>
+  <div id="key-status-msg" style="display:none"></div>
+  <button class="btn danger full" onclick="clearKey()" id="clear-key-btn" style="display:none">🗑 EFFACER LA CLÉ</button>
+</main>
+</div>
+
+<!-- PAGE CHIFFRER -->
+<div class="page" id="page-encrypt">
+<main>
+  <div id="enc-key-warning" class="info-box error" style="display:none">⚠ Aucune clé chargée ! Va dans l'onglet CLÉ.</div>
+  <div>
+    <div class="sec-label">Ton message</div>
+    <textarea id="enc-input" rows="4" placeholder="Tape ton message secret ici..." oninput="liveEncrypt()"></textarea>
+    <div class="stat-row" style="margin-top:6px">
+      <div class="stat"><span>Caractères : </span><strong id="enc-char-count">0</strong></div>
+      <div class="stat"><span>Clé restante : </span><strong id="enc-key-left">0</strong></div>
+      <div class="stat" id="enc-warn-stat" style="display:none"><strong style="color:var(--red)">⚠ TROP LONG</strong></div>
+    </div>
+  </div>
+  <div id="enc-result-section" style="display:none">
+    <div class="sec-label">Message chiffré</div>
+    <div class="decode-box" id="enc-output" style="font-size:11px;word-break:break-all"></div>
+    <div class="btn-row" style="margin-top:8px">
+      <button class="btn primary" onclick="copyEncrypted()" style="flex:1">📋 COPIER</button>
+      <button class="btn" onclick="sendEncrypted()" style="flex:1">📡 ENVOYER DANS ELEMENT</button>
+    </div>
+  </div>
+  <div id="send-status" style="display:none"></div>
+</main>
+</div>
+
+<!-- PAGE DÉCHIFFRER -->
+<div class="page" id="page-decrypt">
+<main>
+  <div id="dec-key-warning" class="info-box error" style="display:none">⚠ Aucune clé chargée ! Va dans l'onglet CLÉ.</div>
+  <div>
+    <div class="sec-label">Message chiffré reçu</div>
+    <textarea id="dec-input" rows="3" placeholder="Colle ici le message [OTP:OFFSET:HEX]..."></textarea>
+    <button class="btn primary full" style="margin-top:8px" onclick="decryptMessage()">▶ DÉCHIFFRER</button>
+  </div>
+  <div id="dec-result-section" style="display:none">
+    <div class="sec-label">Message déchiffré</div>
+    <div class="progress-bar"><div class="progress-fill" id="dec-progress-fill"></div></div>
+    <div class="progress-label" id="dec-progress-label">DECRYPTING...</div>
+    <div class="decode-box" id="dec-output"></div>
+    <button class="btn" onclick="copyDecrypted()" style="margin-top:8px;width:100%">📋 COPIER LE MESSAGE</button>
+  </div>
+</main>
+</div>
+
+<!-- PAGE JOURNAL -->
+<div class="page" id="page-history">
+<main>
+  <div class="sec-label">Journal</div>
+  <div id="history-list"><div class="info-box neutral">Aucune transmission.</div></div>
+  <button class="btn danger full" style="margin-top:8px" onclick="clearHistory()">🗑 EFFACER</button>
+</main>
+</div>
+</div>
+
+<script>
+var masterKey=null, keyOffset=0, newKeyBuffer=null, txHistory=[], widgetApi=null, matrixReady=false;
+var GLYPHS='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%';
+
+/* ── NETTOYAGE CLÉ : supprime TOUS les caractères non-hex ── */
+function cleanHex(s){ return s.replace(/[^0-9a-fA-F]/g,''); }
+
+/* ── CHECKSUM simple pour vérifier que les deux ont la même clé ── */
+function checksum(bytes){
+  var h=0;
+  for(var i=0;i<bytes.length;i++) h=(h*31+bytes[i])>>>0;
+  return h.toString(16).padStart(8,'0').toUpperCase();
+}
+
+function bytesToHex(b){ return Array.from(b).map(function(x){return x.toString(16).padStart(2,'0');}).join(''); }
+function hexToBytes(h){
+  var c=cleanHex(h); // NETTOYAGE ICI
+  if(c.length%2!==0) c='0'+c;
+  return new Uint8Array(c.match(/.{1,2}/g).map(function(x){return parseInt(x,16);}));
+}
+
+/* ── MATRIX ── */
+function initMatrix(){
+  try{
+    var p=new URLSearchParams(window.location.search);
+    var wid=p.get('widgetId')||'otp-'+Date.now();
+    widgetApi=new mxwidgets.WidgetApi(wid,'*');
+    widgetApi.requestCapabilities([mxwidgets.MatrixCapabilities.SendEvent]);
+    widgetApi.on('ready',function(){
+      matrixReady=true;
+      document.getElementById('conn-dot').classList.add('live');
+      document.getElementById('conn-label').textContent='CONNECTÉ';
+    });
+    widgetApi.start();
+  }catch(e){ document.getElementById('conn-label').textContent='STANDALONE'; }
+}
+async function sendToRoom(t){
+  if(!matrixReady||!widgetApi)return false;
+  try{ await widgetApi.sendRoomEvent('m.room.message',{msgtype:'m.text',body:t}); return true; }
+  catch(e){ return false; }
+}
+
+/* ── TABS ── */
+function showPage(name,btn){
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});
+  document.getElementById('page-'+name).classList.add('active');
+  btn.classList.add('active');
+  if(name==='encrypt'){ document.getElementById('enc-key-warning').style.display=masterKey?'none':'block'; updateKeyStats(); }
+  if(name==='decrypt'){ document.getElementById('dec-key-warning').style.display=masterKey?'none':'block'; }
+}
+
+/* ── GÉNÉRATION CLÉ ── */
+function generateKey(){
+  var size=parseInt(document.getElementById('key-size').value);
+  newKeyBuffer=crypto.getRandomValues(new Uint8Array(size));
+  var hex=bytesToHex(newKeyBuffer);
+  var cs=checksum(newKeyBuffer);
+  var s=document.getElementById('new-key-section');
+  s.style.display='flex'; s.style.flexDirection='column'; s.style.gap='8px';
+  document.getElementById('new-key-display').textContent=hex;
+  document.getElementById('key-checksum').textContent='Checksum de vérification : '+cs+' (partage ce code avec ton contact pour confirmer que vous avez la même clé)';
+}
+
+function copyNewKey(){
+  if(!newKeyBuffer)return;
+  navigator.clipboard.writeText(bytesToHex(newKeyBuffer)).then(function(){
+    var b=document.getElementById('copy-new-key-btn');
+    b.textContent='✓ COPIÉ !';
+    setTimeout(function(){b.textContent='📋 COPIER LA CLÉ';},2000);
+  });
+}
+
+function useThisKey(){
+  if(!newKeyBuffer)return;
+  masterKey=newKeyBuffer; keyOffset=0; newKeyBuffer=null;
+  document.getElementById('new-key-section').style.display='none';
+  updateKeyDisplay();
+  saveToStorage();
+  showKeyStatus('✅ Clé chargée et sauvegardée ! ('+masterKey.length+' octets) Checksum: '+checksum(masterKey),'success');
+}
+
+function importKey(){
+  var raw=document.getElementById('import-key-input').value;
+  var cleaned=cleanHex(raw); // NETTOYAGE : enlève espaces, sauts de ligne, etc.
+  if(cleaned.length<64){ showKeyStatus('⚠ Clé trop courte ou invalide.','error'); return; }
+  if(cleaned.length%2!==0) cleaned='0'+cleaned;
+  try{
+    var bytes=hexToBytes(cleaned);
+    masterKey=bytes; keyOffset=0;
+    document.getElementById('import-key-input').value='';
+    var cs=checksum(masterKey);
+    updateKeyDisplay();
+    saveToStorage();
+    showKeyStatus('✅ Clé importée et sauvegardée ! '+masterKey.length+' octets — Checksum: '+cs,'success');
+  }catch(e){ showKeyStatus('⚠ Erreur import: '+e.message,'error'); }
+}
+
+function clearKey(){
+  if(!confirm('Effacer la clé ?'))return;
+  masterKey=null; keyOffset=0; updateKeyDisplay();
+  try{ localStorage.removeItem('otp_key'); localStorage.removeItem('otp_offset'); }catch(e){}
+  showKeyStatus('🗑 Clé effacée.','warning');
+}
+
+function showKeyStatus(msg,type){
+  var el=document.getElementById('key-status-msg');
+  el.style.display='block'; el.className='info-box '+type; el.innerHTML=msg;
+  setTimeout(function(){el.style.display='none';},5000);
+}
+
+function updateKeyDisplay(){
+  var badge=document.getElementById('key-badge-wrap');
+  var display=document.getElementById('key-display');
+  var btn=document.getElementById('clear-key-btn');
+  if(masterKey){
+    var hex=bytesToHex(masterKey);
+    badge.innerHTML='<span class="key-badge ok"><span class="dot"></span>CLÉ ACTIVE — CS:'+checksum(masterKey)+'</span>';
+    display.style.color='var(--green)';
+    display.textContent=hex.slice(0,64)+'… ('+masterKey.length+' octets)';
+    btn.style.display='block';
+  }else{
+    badge.innerHTML='<span class="key-badge no"><span class="dot"></span>AUCUNE CLÉ</span>';
+    display.style.color='var(--text3)'; display.textContent='Aucune clé chargée...';
+    btn.style.display='none';
+  }
+  updateKeyStats();
+}
+
+function updateKeyStats(){
+  var len=masterKey?masterKey.length:0;
+  var rem=Math.max(0,len-keyOffset);
+  document.getElementById('key-len').textContent=len;
+  document.getElementById('key-used').textContent=keyOffset;
+  document.getElementById('key-remaining').textContent=rem;
+  if(document.getElementById('enc-key-left')) document.getElementById('enc-key-left').textContent=rem;
+}
+
+/* ── XOR ── */
+function otpXOR(text,offset){
+  if(!masterKey)return null;
+  var bytes=new TextEncoder().encode(text);
+  if(offset+bytes.length>masterKey.length)return null;
+  var out=new Uint8Array(bytes.length);
+  for(var i=0;i<bytes.length;i++) out[i]=bytes[i]^masterKey[offset+i];
+  return out;
+}
+
+/* ── CHIFFRER ── */
+function liveEncrypt(){
+  var text=document.getElementById('enc-input').value;
+  var count=new TextEncoder().encode(text).length;
+  document.getElementById('enc-char-count').textContent=count;
+  updateKeyStats();
+  var rem=masterKey?masterKey.length-keyOffset:0;
+  document.getElementById('enc-warn-stat').style.display=count>rem?'block':'none';
+  if(!masterKey||!text){document.getElementById('enc-result-section').style.display='none';return;}
+  var enc=otpXOR(text,keyOffset);
+  if(!enc){document.getElementById('enc-result-section').style.display='none';return;}
+  document.getElementById('enc-output').textContent='[OTP:'+keyOffset+':'+bytesToHex(enc)+']';
+  document.getElementById('enc-result-section').style.display='block';
+}
+
+function copyEncrypted(){
+  var t=document.getElementById('enc-output').textContent;
+  navigator.clipboard.writeText(t).then(function(){
+    var b=event.target; b.textContent='✓ COPIÉ';
+    setTimeout(function(){b.textContent='📋 COPIER';},2000);
+  });
+}
+
+async function sendEncrypted(){
+  var text=document.getElementById('enc-input').value.trim();
+  if(!text||!masterKey)return;
+  var enc=otpXOR(text,keyOffset);
+  if(!enc){showSendStatus('⚠ Pas assez de clé !','error');return;}
+  var payload='[OTP:'+keyOffset+':'+bytesToHex(enc)+']';
+  var byteLen=new TextEncoder().encode(text).length;
+  var sent=await sendToRoom(payload);
+  keyOffset+=byteLen;
+  updateKeyStats();
+  saveToStorage();
+  saveHistory('OUT',text,payload);
+  document.getElementById('enc-input').value='';
+  document.getElementById('enc-result-section').style.display='none';
+  if(sent) showSendStatus('✅ Envoyé dans Element !','success');
+  else{ navigator.clipboard.writeText(payload); showSendStatus('📋 Standalone — copié dans le presse-papiers !','warning'); }
+}
+
+function showSendStatus(msg,type){
+  var el=document.getElementById('send-status');
+  el.style.display='block'; el.className='info-box '+type; el.textContent=msg;
+  setTimeout(function(){el.style.display='none';},3000);
+}
+
+/* ── DÉCHIFFRER ── */
+function decryptMessage(){
+  if(!masterKey){document.getElementById('dec-key-warning').style.display='block';return;}
+  var raw=document.getElementById('dec-input').value.trim();
+  if(!raw)return;
+  var match=raw.match(/\[OTP:(\d+):([0-9a-fA-F]+)\]/);
+  if(!match){
+    document.getElementById('dec-result-section').style.display='block';
+    document.getElementById('dec-output').textContent='⚠ Format invalide. Doit être [OTP:OFFSET:HEX]';
+    document.getElementById('dec-output').style.color='var(--red)'; return;
+  }
+  var offset=parseInt(match[1]);
+  var encBytes;
+  try{ encBytes=hexToBytes(match[2]); }catch(e){
+    document.getElementById('dec-output').textContent='⚠ Données corrompues.'; return;
+  }
+  if(offset+encBytes.length>masterKey.length){
+    document.getElementById('dec-result-section').style.display='block';
+    document.getElementById('dec-output').textContent='⚠ Offset dépasse la clé. Mauvaise clé ?';
+    document.getElementById('dec-output').style.color='var(--red)'; return;
+  }
+  var decBytes=new Uint8Array(encBytes.length);
+  for(var i=0;i<encBytes.length;i++) decBytes[i]=encBytes[i]^masterKey[offset+i];
+  var decoded;
+  try{ decoded=new TextDecoder().decode(decBytes); }
+  catch(e){ decoded='⚠ Impossible de décoder — mauvaise clé ?'; }
+  document.getElementById('dec-result-section').style.display='block';
+  document.getElementById('dec-output').style.color='var(--green)';
+  animateDecode(decoded);
+  saveHistory('IN',decoded,raw);
+}
+
+function animateDecode(text){
+  var out=document.getElementById('dec-output');
+  var bar=document.getElementById('dec-progress-fill');
+  var label=document.getElementById('dec-progress-label');
+  out.textContent=''; bar.style.width='0%';
+  var total=Math.min(2500,Math.max(600,text.length*45));
+  var step=total/Math.max(text.length,1);
+  var spans=text.split('').map(function(){
+    var s=document.createElement('span');
+    s.textContent=GLYPHS[Math.floor(Math.random()*GLYPHS.length)];
+    s.style.color='var(--text3)'; out.appendChild(s); return s;
+  });
+  var rev=0;
+  function next(){
+    if(rev>=spans.length){bar.style.width='100%';label.textContent='DECRYPTION COMPLETE ✓';return;}
+    for(var i=rev;i<spans.length;i++) spans[i].textContent=GLYPHS[Math.floor(Math.random()*GLYPHS.length)];
+    spans[rev].textContent=text[rev];
+    spans[rev].style.animation='decode-char .25s forwards';
+    spans[rev].style.textShadow='0 0 8px rgba(0,255,65,.7)';
+    rev++;
+    bar.style.width=Math.round(rev/spans.length*100)+'%';
+    label.textContent='DECRYPTING... '+Math.round(rev/spans.length*100)+'%';
+    setTimeout(next,step);
+  }
+  next();
+}
+
+function copyDecrypted(){
+  var t=document.getElementById('dec-output').textContent;
+  navigator.clipboard.writeText(t).then(function(){
+    var b=event.target; b.textContent='✓ COPIÉ';
+    setTimeout(function(){b.textContent='📋 COPIER LE MESSAGE';},2000);
+  });
+}
+
+/* ── JOURNAL ── */
+function saveHistory(dir,plain,cipher){
+  var now=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  txHistory.unshift({dir:dir,plain:plain.slice(0,50)+(plain.length>50?'…':''),cipher:cipher.slice(0,40)+'…',time:now});
+  if(txHistory.length>20)txHistory.pop();
+  renderHistory();
+}
+function renderHistory(){
+  var el=document.getElementById('history-list');
+  if(!txHistory.length){el.innerHTML='<div class="info-box neutral">Aucune transmission.</div>';return;}
+  el.innerHTML=txHistory.map(function(h){
+    return '<div class="history-item"><div style="display:flex;gap:8px;align-items:center;margin-bottom:3px"><span style="font-size:9px;color:var(--text3)">'+h.time+'</span><span style="font-size:9px;color:'+(h.dir==='OUT'?'var(--amber)':'var(--green)')+'">'+( h.dir==='OUT'?'📡 ENVOYÉ':'📥 REÇU')+'</span></div><div style="font-size:11px;color:var(--text)">'+h.plain+'</div><div style="font-size:9px;color:var(--text3);margin-top:2px;word-break:break-all">'+h.cipher+'</div></div>';
+  }).join('');
+}
+function clearHistory(){ txHistory=[]; renderHistory(); }
+
+initMatrix();
+updateKeyDisplay();
+
+/* ── PERSISTENCE localStorage ── */
+function saveToStorage(){
+  if(!masterKey) return;
+  try{
+    localStorage.setItem('otp_key', bytesToHex(masterKey));
+    localStorage.setItem('otp_offset', keyOffset.toString());
+  }catch(e){}
+}
+
+function loadFromStorage(){
+  try{
+    var savedKey = localStorage.getItem('otp_key');
+    var savedOffset = localStorage.getItem('otp_offset');
+    if(savedKey && savedKey.length >= 64){
+      masterKey = hexToBytes(savedKey);
+      keyOffset = savedOffset ? parseInt(savedOffset) : 0;
+      updateKeyDisplay();
+      showKeyStatus('🔑 Clé restaurée automatiquement ('+masterKey.length+' octets) — CS:'+checksum(masterKey),'success');
+    }
+  }catch(e){}
+}
+
+loadFromStorage();
+</script>
+</body>
+</html>
